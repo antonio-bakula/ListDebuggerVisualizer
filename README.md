@@ -19,7 +19,6 @@ Simply copy visualizer dll to your Visual Studio Visualizers folder, default fol
 
 ### Usage:
 Types that implement IList will get little magnifier icon in Debugger  Locals / Variables Watch, like this:
-![alt text](http://www.antoniob.com/EasyEdit/UserFiles/ListVisualizer/DebuggerVisualizerUsage1.png "Visual Studio List Debugger Visualizer usage")
 
 Click on magnifier icon and if IList members are marked as Serializable, their contents will be shown in grid, like on screenshots below.
 
