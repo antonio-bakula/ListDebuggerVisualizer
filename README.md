@@ -12,6 +12,7 @@ http://www.antoniob.com/visual-studio-list-debugger-visualizer.html
 ### Installation:
 Simply copy visualizer dll to your Visual Studio Visualizers folder, default folder is:
 
+* VS 2019 -> c:\Users\<username>\Documents\Visual Studio 2019\Visualizers
 * VS 2017 -> c:\Users\<username>\Documents\Visual Studio 2017\Visualizers
 * VS 2015 -> c:\Users\<username>\Documents\Visual Studio 2015\Visualizers
 * VS 2013 -> c:\Users\<username>\Documents\Visual Studio 2013\Visualizers
