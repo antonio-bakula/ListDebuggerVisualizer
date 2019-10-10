@@ -1,4 +1,5 @@
-﻿using OfficeOpenXml;
+﻿using Newtonsoft.Json.Linq;
+using OfficeOpenXml;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -39,7 +40,10 @@ namespace ListDebuggerVisualizer
 				return;
 			}
 			InitGrid();
+
 			this.grid.DataSource = this.Model;
+			this.grid.AutoGenerateHierarchy = true;
+
 			AutoFitColumns();
 			ReadSettings();
 			toolStripLabelTypeName.Text = "List item type: " + this.ListType;
@@ -62,8 +66,6 @@ namespace ListDebuggerVisualizer
 			this.grid.EnableFiltering = true;
 			this.grid.MasterTemplate.ShowHeaderCellButtons = true;
 			this.grid.MasterTemplate.ShowFilteringRow = false;
-
-			this.grid.AutoGenerateHierarchy = true;
 		}
 
 		private void AutoFitColumns()
@@ -177,27 +179,30 @@ namespace ListDebuggerVisualizer
 
 			int col = 1;
 			int row = 1;
-			var itemType = this.Model.GetType().GetProperty("Item").PropertyType;
-			var properties = itemType.GetProperties();
-			foreach (var prop in properties)
+			foreach (var item in this.Model.Cast<JObject>())
 			{
-				ws.Cells[row, col].Value = prop.Name;
-				col++;
-			}
-
-			row++;
-			col = 1;
-			foreach (var item in this.Model)
-			{
-				foreach (var prop in properties)
+				// First row Property names
+				if (row == 1)
 				{
-					var value = prop.GetValue(item, new object[0]);
+					foreach (var prop in item.Properties())
+					{
+						ws.Cells[row, col].Value = prop.Name;
+						col++;
+					}
+					row++;
+				}
+
+				col = 1;
+				foreach (var prop in item.Properties())
+				{
+					string value = prop.Value?.ToString() ?? "";
 					if (value != null)
-						ws.Cells[row, col].Value = value.ToString();
+					{
+						ws.Cells[row, col].Value = value;
+					}
 					col++;
 				}
 				row++;
-				col = 1;
 			}
 
 			var sd = new SaveFileDialog();
