@@ -8,6 +8,7 @@ I used Telerik RadGridView for displaying data because it's packed with nice fea
 ### Binaries download:
 
 http://www.antoniob.com/visual-studio-list-debugger-visualizer.html
+Or see GitHub releases for this project.
 
 ### Installation:
 Simply copy visualizer dll to your Visual Studio Visualizers folder, default folder is:
