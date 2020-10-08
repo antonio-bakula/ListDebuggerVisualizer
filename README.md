@@ -5,6 +5,8 @@ I made a Visual Studio debugger visualizer for List<T> or more precisly if inspe
 
 I used Telerik RadGridView for displaying data because it's packed with nice features and I was done in no time, but downside is that visualizer dll is 4MB and sometimes can be slow to show. Another slick feature is that your visualizer will remember grid settings for every type separately, and there is a handy option to export visualized data to Excel.
 
+Instalation available on Visual Studio Marketplace: https://marketplace.visualstudio.com/items?itemName=AntonioBakula.vs2019-list-visualizer
+
 ### Binaries download:
 
 http://www.antoniob.com/visual-studio-list-debugger-visualizer.html
