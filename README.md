@@ -18,6 +18,8 @@ Simply copy visualizer dll to your Visual Studio Visualizers folder, default fol
 * VS 2019 -> c:\Users\<username>\Documents\Visual Studio 2019\Visualizers
 * VS 2017 -> c:\Users\<username>\Documents\Visual Studio 2017\Visualizers
 
+### Warning: 
+Visual Studio List Debugger Visualizer does NOT work for .NET Core projects, at least not yet, sorry.
 
 ### Usage:
 Types that implement IList will get little magnifier icon in Debugger  Locals / Variables Watch, like this:
