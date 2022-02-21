@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using ListDebuggerVisualizer_Model;
+using Newtonsoft.Json;
 using OfficeOpenXml;
 using System;
 using System.Collections;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Dynamic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -23,8 +25,8 @@ namespace ListDebuggerVisualizer
 		/// if exceptions occures when Visualizer form is visible (and modal) Visual Studio chrashes when closing form, and user cannot close Visualizer form. It's annoying, very.
 		/// </summary>
 		private bool formLoaded = false;
-		public IList Model { get; set; }
-		public string ListType { get; set; }
+		private DataTable data;
+		private string listType { get; set; }
 
 		private RadGridView grid;
 
@@ -33,20 +35,26 @@ namespace ListDebuggerVisualizer
 			InitializeComponent();
 		}
 
+		public void SetData(DataTable table)
+		{
+			this.data = table;
+			this.listType = this.data.TableName;
+		}
+
 		private void MainForm_Load(object sender, EventArgs e)
 		{
-			if (this.Model == null)
+			if (this.data == null)
 			{
 				return;
 			}
 			InitGrid();
 
-			this.grid.DataSource = this.Model;
+			this.grid.DataSource = this.data;
 			this.grid.AutoGenerateHierarchy = true;
 
 			AutoFitColumns();
 			ReadSettings();
-			toolStripLabelTypeName.Text = "List item type: " + this.ListType;
+			toolStripLabelTypeName.Text = "List item type: " + this.listType;
 			this.formLoaded = true;
 		}
 
@@ -79,24 +87,27 @@ namespace ListDebuggerVisualizer
 			if (settings == null)
 				return;
 
-			var mySetting = settings.FirstOrDefault(ltis => ltis.Name == this.ListType);
+			var mySetting = settings.FirstOrDefault(ltis => ltis.Name == this.listType);
 			if (mySetting != null)
 			{
 				this.Location = mySetting.Location;
 				this.Size = mySetting.Size;
-				this.grid.LoadLayout(mySetting.GridSettingsFile);
+				if (File.Exists(mySetting.GridSettingsFile))
+				{
+					this.grid.LoadLayout(mySetting.GridSettingsFile);
+				}
 			}
 		}
 
 		private void SaveSettings()
 		{
 			ListTypeItemSettings mySetting = null;
-			var settingsFile = new FileInfo(GetSettingsStorageFile());
+			var settingsFile = GetSettingsStorageFile();
 
 			var settings = GetSettingsList();
 			if (settings != null)
 			{
-				mySetting = settings.FirstOrDefault(ltis => ltis.Name == this.ListType);
+				mySetting = settings.FirstOrDefault(ltis => ltis.Name == this.listType);
 			}
 			else
 			{
@@ -106,7 +117,7 @@ namespace ListDebuggerVisualizer
 			if (mySetting == null)
 			{
 				mySetting = new ListTypeItemSettings();
-				mySetting.Name = this.ListType;
+				mySetting.Name = this.listType;
 				mySetting.GridSettingsFile = settingsFile.DirectoryName + "\\grid_settings_" + mySetting.Name + ".xml";
 				settings.Add(mySetting);
 			}
@@ -121,17 +132,18 @@ namespace ListDebuggerVisualizer
 			{
 				mySetting.Size = this.RestoreBounds.Size;
 			}
-			string xml = SerializeToXml(settings);
-			File.WriteAllText(settingsFile.FullName, xml);
+			string json = JsonConvert.SerializeObject(settings);
+			File.WriteAllText(settingsFile.FullName, json);
 			this.grid.SaveLayout(mySetting.GridSettingsFile);
 		}
 
 		private List<ListTypeItemSettings> GetSettingsList()
 		{
-			string settingsFile = GetSettingsStorageFile();
-			if (File.Exists(settingsFile))
+			var settingsFile = GetSettingsStorageFile();
+			if (settingsFile.Exists)
 			{
-				return DeserializeFromXml<List<ListTypeItemSettings>>(settingsFile);
+				string json = File.ReadAllText(settingsFile.FullName);
+				return JsonConvert.DeserializeObject<List<ListTypeItemSettings>>(json);
 			}
 			else
 			{
@@ -139,10 +151,15 @@ namespace ListDebuggerVisualizer
 			}
 		}
 
-		private string GetSettingsStorageFile()
+		private FileInfo GetSettingsStorageFile()
 		{
 			string assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-			return Path.Combine(assemblyFolder, "ListDebuggerVisualizerSettings.xml");
+			var settingsFile = new FileInfo(Path.Combine(assemblyFolder, "ListDebuggerVisualizer\\settings.json"));
+			if (!settingsFile.Directory.Exists)
+			{
+				settingsFile.Directory.Create();
+			}
+			return settingsFile;
 		}
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -153,66 +170,22 @@ namespace ListDebuggerVisualizer
 			}
 		}
 
-		public static string SerializeToXml(object obj)
-		{
-			var serializer = new XmlSerializer(obj.GetType());
-			StringWriter sw = new StringWriter();
-			serializer.Serialize(sw, obj);
-			return sw.ToString();
-		}
-
-		public static T DeserializeFromXml<T>(string xmlFilePath)
-		{
-			var serializer = new XmlSerializer(typeof(T));
-			T obj = default(T);
-			using (TextReader textReader = new StreamReader(xmlFilePath))
-			{
-				obj = (T)serializer.Deserialize(textReader);
-			}
-			return obj;
-		}
-
 		private void toolStripButtonExportToExcel_Click(object sender, EventArgs e)
 		{
-			var pack = new ExcelPackage();
-			var ws = pack.Workbook.Worksheets.Add(this.ListType);
-
-			int col = 1;
-			int row = 1;
-			foreach (var item in this.Model.Cast<JObject>())
+			using (ExcelPackage pack = new ExcelPackage())
 			{
-				// First row Property names
-				if (row == 1)
-				{
-					foreach (var prop in item.Properties())
-					{
-						ws.Cells[row, col].Value = prop.Name;
-						col++;
-					}
-					row++;
-				}
+				ExcelWorksheet ws = pack.Workbook.Worksheets.Add(this.listType);
+				ws.Cells["A1"].LoadFromDataTable(this.data, true);
 
-				col = 1;
-				foreach (var prop in item.Properties())
+				var sd = new SaveFileDialog();
+				sd.FileName = this.listType + ".xlsx";
+				sd.Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*";
+				if (sd.ShowDialog() == DialogResult.OK)
 				{
-					string value = prop.Value?.ToString() ?? "";
-					if (value != null)
+					using (FileStream fs = new FileStream(sd.FileName, FileMode.Create))
 					{
-						ws.Cells[row, col].Value = value;
+						pack.SaveAs(fs);
 					}
-					col++;
-				}
-				row++;
-			}
-
-			var sd = new SaveFileDialog();
-			sd.FileName = this.ListType + ".xlsx";
-			sd.Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*";
-			if (sd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-			{
-				using (FileStream fs = new FileStream(sd.FileName, FileMode.Create))
-				{
-					pack.SaveAs(fs);
 				}
 			}
 		}
@@ -220,7 +193,7 @@ namespace ListDebuggerVisualizer
 		private void toolStripButtonClearTypeSettings_Click(object sender, EventArgs e)
 		{
 			this.grid.DataSource = null;
-			this.grid.DataSource = this.Model;
+			this.grid.DataSource = this.data;
 			AutoFitColumns();
 			SaveSettings();
 		}

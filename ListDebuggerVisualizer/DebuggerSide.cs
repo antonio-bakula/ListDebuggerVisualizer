@@ -1,16 +1,25 @@
-﻿using Microsoft.VisualStudio.DebuggerVisualizers;
+﻿using ListDebuggerVisualizer_Model;
+using Microsoft.VisualStudio.DebuggerVisualizers;
+using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
+using System.Dynamic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
 
 
-[assembly: DebuggerVisualizer(typeof(ListDebuggerVisualizer.ListDebuggerVisualizerClient), typeof(ListDebuggerVisualizer.VisualizerJsonObjectSource), Target = typeof(List<>),
-					 Description = "List Debugger Visualizer")]
+[assembly: DebuggerVisualizer(
+	typeof(ListDebuggerVisualizer.ListDebuggerVisualizerClient),
+	typeof(ListDebuggerVisualizer_Debuggee.VisualizerJsonObjectSource),
+	Target = typeof(List<>),
+	Description = "List Debugger Visualizer")
+]
 
 namespace ListDebuggerVisualizer
 {
@@ -20,87 +29,86 @@ namespace ListDebuggerVisualizer
 		{
 			try
 			{
-				ShowVisualizer(objectProvider);
+				var provider = (IVisualizerObjectProvider2)objectProvider;
+				var jsonStream = objectProvider.GetData();
+				var reader = new StreamReader(jsonStream);
+				string json = reader.ReadToEnd();
+				ShowVisualizer(json);
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("Exception getting object data: " + ex.Message);
+				MessageBox.Show($"List Debugger Visualizer Exception while getting object data: {ex.Message}");
 			}
 		}
 
-		private static void ShowVisualizer(IVisualizerObjectProvider objectProvider)
+		public static void ShowVisualizer(string json)
 		{
-			CosturaUtility.Initialize();
+			var container = JsonConvert.DeserializeObject<VisualizerDataContainer>(json);
 
-			var jsonStream = objectProvider.GetData();
-			var reader = new StreamReader(jsonStream);
-			string json = reader.ReadToEnd();
-			var container = Newtonsoft.Json.JsonConvert.DeserializeObject<VisualizerDataContainer>(json);
-
-			if (container.TypeName == "string")
+			if (container.IsPrimitive || container.TypeName.ToLower() == "string")
 			{
-				var prim = new List<PrimitiveListItem>();
-				foreach (string strItem in container.Data.Cast<string>())
-				{
-					var pli = new PrimitiveListItem();
-					pli.Value = strItem;
-					prim.Add(pli);
-				}
-				ListDebuggerVisualizerClient.ShowVisualizerForm(prim, container.TypeName);
-			}
-			else if (container.IsPrimitive)
-			{
-				var prim = new List<PrimitiveListItem>();
-				foreach (object objItem in container.Data.Cast<object>())
-				{
-					var pli = new PrimitiveListItem();
-					pli.Value = objItem?.ToString() ?? "";
-					prim.Add(pli);
-				}
-				ListDebuggerVisualizerClient.ShowVisualizerForm(prim, container.TypeName);
+				var list = JsonConvert.DeserializeObject<IEnumerable<object>>(container.JsonData);
+				var table = PrimitiveListToDataTable(list, container.TypeName);
+				ListDebuggerVisualizerClient.ShowVisualizerForm(table);
 			}
 			else
 			{
-				ListDebuggerVisualizerClient.ShowVisualizerForm(container.Data, container.TypeName);
+				var list = JsonConvert.DeserializeObject<IEnumerable<ExpandoObject>>(container.JsonData);
+				var table = ExpandosListToDataTable(list, container.TypeName);
+				ListDebuggerVisualizerClient.ShowVisualizerForm(table);
 			}
 		}
 
-		public static void ShowVisualizerForm(IList data, string typeName)
+		private static void ShowVisualizerForm(DataTable table)
 		{
-			var mf = new MainForm();
-			mf.Model = data;
-			mf.ListType = typeName;
-			mf.ShowDialog();
+			if (table == null)
+			{
+				MessageBox.Show("No data.");
+			}
+			else
+			{
+				var mf = new MainForm();
+				mf.SetData(table);
+				mf.ShowDialog();
+			}
 		}
-	}
 
-	public class PrimitiveListItem
-	{
-		public string Value { get; set; }
-	}
-
-	public class VisualizerJsonObjectSource : VisualizerObjectSource
-	{
-		public override void GetData(object target, Stream outgoingData)
+		private static DataTable ExpandosListToDataTable(IEnumerable<ExpandoObject> list, string tableName)
 		{
-			var itemType = target.GetType().GetProperty("Item").PropertyType;
-			var container = new VisualizerDataContainer();
-			container.TypeName =itemType.Name;
-			container.Data = (IList)target;
-			container.IsPrimitive = itemType.IsPrimitive;
-
-			string json = Newtonsoft.Json.JsonConvert.SerializeObject(container);
-			var writer = new StreamWriter(outgoingData);
-			writer.WriteLine(json);
-			writer.Flush();
+			var dict = list.Cast<IDictionary<string, object>>();
+			return DictionaryListToDataTable(dict, tableName);
 		}
-	}
 
-	public class VisualizerDataContainer
-	{
-		public string TypeName { get; set; }
-		public IList Data { get; set; }
-		public bool IsPrimitive { get; set; }
+		private static DataTable PrimitiveListToDataTable(IEnumerable<object> list, string tableName)
+		{
+			var dict = list.Select(i => new Dictionary<string, object> { { "Value", i } });
+			return DictionaryListToDataTable(dict, tableName);
+		}
+
+		private static DataTable DictionaryListToDataTable(IEnumerable<IDictionary<string, object>> list, string tableName)
+		{
+			if (list == null || !list.Any())
+			{
+				return null;
+			}
+			var table = new DataTable(tableName);
+			foreach (var prop in list.First())
+			{
+				table.Columns.Add(new DataColumn(prop.Key, prop.Value.GetType()));
+			}
+
+			foreach (var row in list)
+			{
+				var data = table.NewRow();
+				foreach (var prop in row)
+				{
+					data[prop.Key] = prop.Value;
+				}
+				table.Rows.Add(data);
+			}
+			return table;
+		}
+
 	}
 
 }
