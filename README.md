@@ -7,6 +7,8 @@ I used Telerik RadGridView for displaying data because it's packed with nice fea
 
 Instalation available on Visual Studio Marketplace: https://marketplace.visualstudio.com/items?itemName=AntonioBakula.vs2019-list-visualizer
 
+### Visual Studio List Debugger Visualizer does NOT work for .NET Core projects, and there will be no new version for VS 2022 and later, simple because Visual Studio 2022 has finally got such feature, there is a pretty decent IList visualizer in VS 2022 :)
+
 ### Binaries download:
 
 http://www.antoniob.com/visual-studio-list-debugger-visualizer.html
@@ -17,9 +19,6 @@ Simply copy visualizer dll to your Visual Studio Visualizers folder, default fol
 
 * VS 2019 -> c:\Users\<username>\Documents\Visual Studio 2019\Visualizers
 * VS 2017 -> c:\Users\<username>\Documents\Visual Studio 2017\Visualizers
-
-### Warning: 
-Visual Studio List Debugger Visualizer does NOT work for .NET Core projects, at least not yet, sorry.
 
 ### Usage:
 Types that implement IList will get little magnifier icon in Debugger  Locals / Variables Watch, like this:
